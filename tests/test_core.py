@@ -212,6 +212,55 @@ def test_independent_reference_sampler_rejects_nonpositive_weights():
         independent_reference_weighted_sample_without_replacement(3, 2, weights, seed=0)
 
 
+def test_safe_weighted_choice_auto_detects_and_applies_workaround_by_default():
+    """The DEFAULT public behavior (force_workaround left unset, i.e.
+    None) must itself call detect_shuffle_ignored_bug() and apply the
+    manual-shuffle workaround when the live probe reports affected --
+    every other existing test explicitly forces True/False and never
+    exercises this auto-detect branch, even though it is what every
+    real caller who does not pass force_workaround actually gets.
+
+    This test does not assume the installed numpy is buggy: it first
+    runs the same live probe the auto-detect path uses, then asserts
+    safe_weighted_choice's un-forced default behavior is CONSISTENT
+    with that live probe result, so it stays correct even after numpy
+    eventually fixes the upstream bug.
+    """
+    n, k = 300, 60
+    weights = np.linspace(1.0, 3.0, n)
+    weights = weights / weights.sum()
+
+    live_probe = detect_shuffle_ignored_bug()
+
+    rng_plain = np.random.default_rng(5)
+    without_workaround = rng_plain.choice(
+        n, size=k, replace=False, p=weights, shuffle=False
+    )
+
+    rng_auto = np.random.default_rng(5)
+    auto_result = safe_weighted_choice(
+        rng_auto, n, size=k, replace=False, p=weights, shuffle=True,
+        # force_workaround intentionally omitted -> exercises the
+        # `if force_workaround is None:` auto-detect branch directly.
+    )
+
+    if live_probe.affected:
+        # Auto-detect must behave exactly like force_workaround=True:
+        # same selected SET, but a different draw ORDER than the
+        # unshuffled call, proving the manual shuffle actually ran.
+        assert set(without_workaround.tolist()) == set(auto_result.tolist())
+        assert not np.array_equal(without_workaround, auto_result)
+    else:
+        # numpy has been fixed upstream: auto-detect must pass the
+        # call straight through, matching rng.choice's own behavior
+        # exactly (same rng-state consumption, no extra shuffle).
+        rng_direct = np.random.default_rng(5)
+        direct_result = rng_direct.choice(
+            n, size=k, replace=False, p=weights, shuffle=True
+        )
+        assert np.array_equal(direct_result, auto_result)
+
+
 def test_independent_reference_sampler_prefers_higher_weight_items_statistically():
     """A weaker, distribution-level correctness check: over many trials,
     an item with much higher weight should be selected more often than
