@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "numpy-choice-shuffle-guard"
+version = "0.1.0"
+description = "Detects and works around a real numpy bug: Generator.choice(replace=False, p=weights) silently ignores the shuffle parameter (numpy/numpy#31210)"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+authors = [{ name = "zhuhroscar-tech" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = ["numpy>=1.24"]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-cov"]
+
+[project.scripts]
+numpy-choice-shuffle-guard = "numpy_choice_shuffle_guard.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
