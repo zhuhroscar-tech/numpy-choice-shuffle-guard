@@ -170,6 +170,18 @@ def safe_weighted_choice(
     if replace or p is None:
         return rng.choice(a, size=size, replace=replace, p=p, shuffle=shuffle)
 
+    if size is None:
+        # numpy's own `size` parameter defaults to None (a single scalar
+        # draw). With exactly one item selected there is no "order" for
+        # `shuffle` to affect either way, so the upstream bug is a no-op
+        # here regardless of live-detection status -- but the workaround
+        # branch below calls `rng.shuffle(result)` on its result, which
+        # crashes with `TypeError: object of type 'int' has no len()`
+        # when `result` is a bare scalar rather than an array. Route the
+        # scalar case straight through unconditionally rather than ever
+        # reaching the shuffle-on-array workaround.
+        return rng.choice(a, size=None, replace=replace, p=p, shuffle=shuffle)
+
     if force_workaround is None:
         # Cheap live probe using a forked, independent bit generator so
         # this detection draw never perturbs the caller's own rng state

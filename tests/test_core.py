@@ -276,3 +276,44 @@ def test_independent_reference_sampler_prefers_higher_weight_items_statistically
         counts[sample] += 1
     # Item 0 (weight 10x any other) must be selected far more often.
     assert counts[0] > counts[1:].max() * 2
+
+
+def test_safe_weighted_choice_does_not_crash_on_default_scalar_size(monkeypatch):
+    """Regression test for a real crash: `Generator.choice`'s own `size`
+    parameter defaults to None (a single scalar draw), and
+    `safe_weighted_choice` is documented as a "drop-in replacement" for
+    it -- callers may reasonably omit `size` entirely. Before this fix,
+    when force_workaround fires (or auto-detect finds the bug present),
+    the workaround branch called `rng.shuffle(result)` on a bare Python
+    int (numpy's scalar-choice return value), raising
+    `TypeError: object of type 'int' has no len()`. This test forces the
+    workaround branch via monkeypatched detection so it fails for the
+    correct behavioral reason regardless of the installed numpy's own
+    live bug status, and would have failed with that TypeError before
+    the `size is None` short-circuit was added.
+    """
+    n = 50
+    weights = np.linspace(1.0, 2.0, n)
+    weights = weights / weights.sum()
+
+    rng = np.random.default_rng(0)
+    # force_workaround=True exercises the exact branch that crashed,
+    # without depending on whether the installed numpy still has the bug.
+    result = safe_weighted_choice(
+        rng, n, size=None, replace=False, p=weights, shuffle=True,
+        force_workaround=True,
+    )
+    assert isinstance(result, (int, np.integer))
+    assert 0 <= int(result) < n
+
+    # Also confirm the auto-detect (unforced) default path never crashes
+    # for the scalar-size case, matching plain rng.choice's own behavior
+    # exactly when size=None (no order to shuffle, so passthrough is the
+    # only correct behavior regardless of live bug-detection status).
+    rng_direct = np.random.default_rng(3)
+    direct = rng_direct.choice(n, size=None, replace=False, p=weights, shuffle=True)
+    rng_auto = np.random.default_rng(3)
+    auto = safe_weighted_choice(
+        rng_auto, n, size=None, replace=False, p=weights, shuffle=True,
+    )
+    assert direct == auto

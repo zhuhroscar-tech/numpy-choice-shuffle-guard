@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "numpy-choice-shuffle-guard"
-version = "0.1.0"
+version = "0.1.1"
 description = "Detects and works around a real numpy bug: Generator.choice(replace=False, p=weights) silently ignores the shuffle parameter (numpy/numpy#31210)"
 readme = "README.md"
 license = { text = "MIT" }
